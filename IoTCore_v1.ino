@@ -2,32 +2,18 @@
 
 
 
-//Fireplace Controller
+//IoT Core
 //C. Gentile
-//Initiated 30 Oct 2017
-//Updated   7 Jan 2018
+//Initiated 1 Jan 2019
+//Updated   1 Jan 2019
 //
-//Based on ESP8266 Blinds Controller Board
-//Uses FauxMO library to respond to Alexa commands
 //
-//Implementation notes:
-//   -assumes 2x SSR to connect buttons
-//   -to do: check to see if we can sense actual state
-//
-//Update v3.0, 7 Jan:
-//  -refactoring code per best seperation practice
-
-#include <fauxmoESP.h>
+#include <WiFiManager.h>
 #include <ArduinoOTA.h>
 #include <ESP8266WiFi.h>
-#include <DHT.h>
-#include <DHT_U.h>
-#include <Adafruit_NeoPixel.h>
 #include <ESP8266WebServer.h>
 #include <FS.h>
 
-
-//#include <PubSubClient.h>     (delay MQTT for future implementation)
 
 //comment out to stop serial comms
 #define DEBUG
@@ -42,73 +28,19 @@
  #define DEBUG_PRINTF(x,y)
 #endif
 
-// Pin Definitions
-#define FanPin  13
-#define HeaterPin  12
-#define LEDPin  4
-#define RedLED   0
-#define BlueLED  2
-#define DHTPin 5
-#define DHTTYPE DHT22
-#define PXL 4
-#define NUMPIXELS 8
-
 const bool ledEnable = false;
 
-const int maxTemp = 100;
-const int maxTime = 14400000;
-const int deBounce = 5000;
-
-int startTime = 0;
-int currTime = 0;
-bool currState = false;
-bool desState = false;
-String flag = "";
-
-fauxmoESP fauxmo;
-DHT dht(DHTPin, DHTTYPE);
-Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS, LEDPin, NEO_GRB + NEO_KHZ800);
 ESP8266WebServer server(80);
 File fsUploadFile;              // a File object to temporarily store the received file
-
-// WiFi Parameters
-const char* ssid = "Bullpup_CA";
-const char* password = "********";
-const char* host = "Fireplace";
-//IPAddress fixedIP(192,168,1,201);
 
 
 //WiFi Setup routine - modify to include LED status feedback
 void setup_wifi() {
+  WiFiManager wifiManager;
 
-  delay(10);
-  // We start by connecting to a WiFi network.
-  DEBUG_PRINTLN();
-  DEBUG_PRINT("Connecting to ");
-  DEBUG_PRINTLN(ssid);
+  delay(100);
 
-  WiFi.hostname(host);
-  WiFi.begin(ssid, password);
-
-  while (WiFi.status() != WL_CONNECTED) {
-    if (ledEnable) digitalWrite(BlueLED, LOW);
-    delay(250);
-    if (ledEnable) digitalWrite(BlueLED, HIGH);
-    delay(250);
-    DEBUG_PRINT(".");
-  }
-
-  randomSeed(micros());
-
-  DEBUG_PRINTLN("");
-  DEBUG_PRINTLN("WiFi connected");
-  DEBUG_PRINTLN("IP address: ");
-  DEBUG_PRINTLN(WiFi.localIP());
-
-  if (ledEnable) digitalWrite(RedLED, HIGH);
-  if (ledEnable) digitalWrite(BlueLED, LOW);
-
-  delay(500);
+  wifiManager.autoConnect("IoTCore");
 }
 
 void setup_OTA() {
@@ -130,23 +62,6 @@ void setup_OTA() {
     else if (error == OTA_END_ERROR) DEBUG_PRINTLN("End Failed");
   });
   ArduinoOTA.begin();
-}
-
-void setup_FauxMo() {
-  fauxmo.addDevice("Fireplace");
-
-  //define WeMo callback routine
-  fauxmo.onMessage([](unsigned char device_id, const char * device_name, bool state) {
-        Serial.printf("[MAIN] Device #%d (%s) state: %s\n", device_id, device_name, state ? "ON" : "OFF");
-        flag = "FAUXMO  ";
-        if (state) {
-          //turn fireplace on
-          desState = true;
-        } else {
-          //turn fireplace off
-          desState = false;
-        }
-    });
 }
 
 String getContentType(String filename) { // convert the file extension to the MIME type
@@ -200,17 +115,6 @@ void handleFileUpload(){ // upload a new file to the SPIFFS
   }
 }
 
-void fireplaceToggle() {
-  desState = !desState;
-}
-
-void processButton() {
-  fireplaceToggle();
-  flag = "MANUAL  ";
-  server.sendHeader("Location", "/");
-  server.send(303);
-}
-
 void handleRoot() {
   server.send(200, "text/plain", "Hello world! - try the /defaultupload url");   // Send HTTP status 200 (Ok) and send some text to the browser/client
 }
@@ -249,63 +153,8 @@ void setupServer(void) {
   DEBUG_PRINTLN("HTTP Server Started.");
 }
 
-void fireplace_on() {
-  startTime = millis();
-  if (ledEnable) digitalWrite(RedLED, LOW);      //set red LED on
-
-  //start LED, fan, heater
-  for(int i=1;i<NUMPIXELS;i++){
-   pixels.setPixelColor(i, pixels.Color(240,240,240)); }
-  pixels.show();
-  digitalWrite(FanPin, HIGH);
-  digitalWrite(HeaterPin, HIGH);
-  currState = true;
-}
-
-void fireplace_off() {
-  digitalWrite(HeaterPin, LOW);
-  if (ledEnable) digitalWrite(RedLED, HIGH);
-  digitalWrite(FanPin, LOW);
-   for(int i=0;i<NUMPIXELS;i++){
-    pixels.setPixelColor(i, pixels.Color(0,0,0)); }
-  pixels.show();
-  currState = false;
-}
-
-
-
-//getCurrTime should return the
-//int getCurrTime() {}
-
-//for
-//void setStartTime() {}
-
-//if checkTimeout sees that elapsed run time is > allowed, returns FALSE, else TRUE.
-//bool chckTimeout() {}
 
 void setup() {
-  //initialize pin outputs
-  pinMode(RedLED, OUTPUT);
-  pinMode(BlueLED, OUTPUT);
-  pinMode(FanPin, OUTPUT);
-  pinMode(HeaterPin, OUTPUT);
-  pinMode(LEDPin, OUTPUT);
-
-  digitalWrite(BlueLED, LOW);
-  digitalWrite(RedLED, LOW);
-
-  digitalWrite(FanPin, LOW);
-  digitalWrite(HeaterPin, LOW);
-  digitalWrite(LEDPin, LOW);
-
-  delay(500);
-
-  digitalWrite(BlueLED, HIGH);
-  digitalWrite(RedLED, HIGH);
-
-  pixels.begin();
-  pixels.setBrightness(240);
-  pixels.show();
 
   //begin serial debug terminal if required
   #ifdef DEBUG
@@ -321,29 +170,11 @@ void setup() {
   //DEBUG mode required for troubleshooting
   setup_OTA();
 
-  //initialize WeMo library
-  setup_FauxMo();
-
   SPIFFS.begin();                           // Start the SPI Flash Files System
 
   setupServer();
 }
 
-void writeLog(void) {
-  File log = SPIFFS.open("/log.txt", "a");
-  int temp = (int) dht.readTemperature(true);
-  int time = millis() / 1000;
-  log.print(time);
-  log.print(" Curr State: ");
-  log.print(currState);
-  log.print("  Des State: ");
-  log.print(desState);
-  log.print(" Cmd Source: ");
-  log.print(flag);
-  log.print(" Temp: ");
-  log.println(temp);
-  log.close();
-}
 
 void loop()
 {
