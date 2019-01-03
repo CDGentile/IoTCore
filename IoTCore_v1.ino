@@ -38,6 +38,12 @@ File fsUploadFile;              // a File object to temporarily store the receiv
 void setup_wifi() {
   WiFiManager wifiManager;
 
+IPAddress _ip = IPAddress(192, 168, 1, 205);
+IPAddress _gw = IPAddress(192, 168, 1, 1);
+IPAddress _sn = IPAddress(255, 255, 255, 0);
+
+wifiManager.setSTAStaticIPConfig(_ip, _gw, _sn);
+
   delay(100);
 
   wifiManager.autoConnect("IoTCore");
