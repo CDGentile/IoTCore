@@ -184,57 +184,9 @@ void loop()
 {
 
   //mandatory handlers
-  fauxmo.handle();      //required to process FauxMo handler
+
   server.handleClient();
   ArduinoOTA.handle();
-
-  //update states if required
-
-  //first, handle all the on->off or remain on cases
-  if (currState) {
-    //check max temp
-    int temp = (int) dht.readTemperature(true);
-    if (temp > maxTemp) {
-      desState = false;
-      flag = "TEMP HI ";
-    }
-
-    //check max elapsed max time
-    currTime = millis();
-    if ((currTime - startTime) > maxTime) {
-      desState = false;
-      flag = "TIME HI ";
-    }
-
-    //handle Echo bounce
-    if (!desState && ((currTime-startTime) < deBounce)) {
-      desState = true;
-    }
-
-    //check scheduled off time
-
-    //check thermostat temperature
-  }  else {       //handle the off->on or remain off
-    //check scheduled start time
-  }
-
-
-
-
-
-
-  //Process FSM
-
-  if (currState && !desState) {
-    fireplace_off();
-    writeLog();
-  }
-
-  if (!currState && desState) {
-    fireplace_on();
-    writeLog();
-  }
-
 
   delay(500);
 
