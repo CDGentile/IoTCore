@@ -122,7 +122,7 @@ void handleFileUpload(){ // upload a new file to the SPIFFS
 }
 
 void handleRoot() {
-  server.send(200, "text/plain", "Hello world! - try the /defaultupload url");   // Send HTTP status 200 (Ok) and send some text to the browser/client
+  server.send(200, "text/plain", "Hello world! index.html not found - please try the /defaultupload url");   // Send HTTP status 200 (Ok) and send some text to the browser/client
 }
 
 void uploadPage(void) {
