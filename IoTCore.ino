@@ -5,7 +5,7 @@
 //IoT Core
 //C. Gentile
 //Initiated 1 Jan 2019
-//Updated   1 Jan 2019
+//Updated   2 Feb 2019
 //
 //
 #include <WiFiManager.h>
@@ -162,7 +162,7 @@ void setup() {
 
   //begin serial debug terminal if required
   #ifdef DEBUG
-    Serial.begin(9600);
+    Serial.begin(115200);
   #endif
 
   delay(250);
