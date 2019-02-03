@@ -15,6 +15,8 @@
 #include <FS.h>
 #include <TimeLib.h>
 #include <WiFiUdp.h>
+#include <DHT.h>
+#include <DHT_U.h>
 
 
 //comment out to stop serial comms
@@ -30,10 +32,18 @@
  #define DEBUG_PRINTF(x,y)
 #endif
 
+#define DHTPin 5
+#define LEDPin  4
+#define RedLED   0
+#define BlueLED  2
+#define DHTTYPE DHT22
+
 const bool ledEnable = false;
 
 static const char ntpServerName[] = "us.pool.ntp.org";
 const int timeZone = -8;
+
+DHT dht(DHTPin, DHTTYPE);
 
 ESP8266WebServer server(80);
 File fsUploadFile;              // a File object to temporarily store the received file
@@ -57,6 +67,7 @@ void digitalClockDisplay();
 void printDigits(int digits);
 void sendNTPpacket(IPAddress &address);
 
+void serialTicker();
 
 
 void setup() {
@@ -92,14 +103,21 @@ void loop()
   server.handleClient();
   ArduinoOTA.handle();
 
-  if (timeStatus() != timeNotSet) {
-  if (now() != prevDisplay) { //update the display only if time has changed
-    prevDisplay = now();
-    digitalClockDisplay();
-  }
-}
+  #ifdef DEBUG
+    serialTicker();
+  #endif
 
   delay(500);
+
+}
+
+void serialTicker() {
+  if (timeStatus() != timeNotSet) {
+    if (now() != prevDisplay) { //update the display only if time has changed
+      prevDisplay = now();
+      digitalClockDisplay();
+    }
+  }
 
 }
 
@@ -163,6 +181,10 @@ void digitalClockDisplay()
   Serial.print(month());
   Serial.print(".");
   Serial.print(year());
+  int temp = (int) dht.readTemperature(true);
+  Serial.print("  Temp: ");
+  Serial.print(temp);
+  Serial.print("F");
   Serial.println();
 }
 
