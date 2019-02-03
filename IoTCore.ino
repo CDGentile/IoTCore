@@ -317,7 +317,7 @@ void uploadPage(void) {
 }
 
 void setupServer(void) {
-  server.on("/", handleRoot);
+  //server.on("/", handleRoot);
 
   server.on("/defaultupload", HTTP_GET, []() {                 // if the client requests the upload page, send it (inline for the first use)
     uploadPage();
