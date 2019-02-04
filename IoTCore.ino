@@ -17,6 +17,9 @@
 #include <WiFiUdp.h>
 #include <DHT.h>
 #include <DHT_U.h>
+#include <ArduinoJson.h>
+#include <WebSocketsServer.h>
+
 
 
 //comment out to stop serial comms
@@ -38,37 +41,33 @@
 #define BlueLED  2
 #define DHTTYPE DHT22
 
+//internal struct to hold values for josn encapsulation
+typedef struct {
+  String time;
+  int ambientTemp;
+} dataStruct;
+
+dataStruct dataStore;
+
 const bool ledEnable = false;
 
 static const char ntpServerName[] = "us.pool.ntp.org";
 const int timeZone = -8;
 
+const int jsonCapacity = JSON_OBJECT_SIZE(2);
+StaticJsonBuffer<jsonCapacity> jb;
+JsonObject& msg = jb.createObject();
+
 DHT dht(DHTPin, DHTTYPE);
 
 ESP8266WebServer server(80);
+WebSocketsServer webSocket(81);
+
 File fsUploadFile;              // a File object to temporarily store the received file
 
 WiFiUDP Udp;
 unsigned int localPort = 8888;
 time_t getNtpTime();
-
-void setupWifi();
-void setupOTA();
-void setupUdp();
-
-String getContentType(String filename);
-bool handleFileRead(String path);
-void handleFileUpload();
-void handleRoot();
-void uploadPage(void);
-void setupServer(void);
-
-void digitalClockDisplay();
-void printDigits(int digits);
-void sendNTPpacket(IPAddress &address);
-
-void serialTicker();
-
 
 void setup() {
 
@@ -88,12 +87,14 @@ void setup() {
 
   SPIFFS.begin();                           // Start the SPI Flash Files System
 
+  startWebSocket();
+
   setupServer();
 
   setupUdp();
 }
 
-time_t prevDisplay = 0; // when the digital clock was displayed
+time_t lastTick = 0; // when the digital clock was displayed
 
 void loop()
 {
@@ -103,23 +104,69 @@ void loop()
   server.handleClient();
   ArduinoOTA.handle();
 
-  #ifdef DEBUG
-    serialTicker();
-  #endif
+  //runs at 1/sec based on second field of current time
+  if (now() != lastTick) { //update the display only if time has changed
+    lastTick = now();
+    updateTime();
+    if (lastTick%5 == 0)    //update temp every 5 seconds
+      updateTemp();
+    #ifdef DEBUG
+      digitalClockDisplay();
+      bufferDisplay();
+    #endif
 
-  delay(500);
 
+  }
 }
 
+//updates internal data structure - checks temp for validity
+void updateTime() {
+  String timeBuf = String(hour()) + ":";
+  int digits = minute();
+  if (digits<10)
+    timeBuf += "0";
+  timeBuf += String(digits) +":";
+  digits = second();
+  if (digits<10)
+    timeBuf += "0";
+  timeBuf += String(digits);
+  dataStore.time = timeBuf;
+}
+
+void updateTemp() {
+  int temp = (int) dht.readTemperature(true);
+  if (temp < 1000)
+    dataStore.ambientTemp = temp;
+}
+
+void bufferDisplay() {
+  Serial.print("Buffer: ");
+  Serial.print(dataStore.time);
+  Serial.print(" Temp: ");
+  Serial.print(dataStore.ambientTemp);
+  Serial.println("F");
+}
+
+void updateJson() {
+  msg["time"] = dataStore.time;
+  msg["ambientTemp"] = dataStore.ambientTemp;
+}
+
+void sendWebsocketJson() {
+  String jsonbuf;
+  msg.printTo(jsonbuf);
+}
+
+/*
+//Serial display of internal data (upgrade to JSON when able)
 void serialTicker() {
   if (timeStatus() != timeNotSet) {
-    if (now() != prevDisplay) { //update the display only if time has changed
-      prevDisplay = now();
+    if (now() != lastTick) { //update the display only if time has changed
+      lastTick = now();
       digitalClockDisplay();
     }
   }
-
-}
+}  */
 
 
 //WiFi Setup routine - modify to include LED status feedback
@@ -158,6 +205,28 @@ void setupOTA() {
   ArduinoOTA.begin();
 }
 
+void startWebSocket() { // Start a WebSocket server
+  webSocket.begin();                          // start the websocket server
+  webSocket.onEvent(webSocketEvent);          // if there's an incomming websocket message, go to function 'webSocketEvent'
+  Serial.println("WebSocket server started.");
+}
+
+void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght) { // When a WebSocket message is received
+  switch (type) {
+    case WStype_DISCONNECTED:             // if the websocket is disconnected
+      Serial.printf("[%u] Disconnected!\n", num);
+      break;
+    case WStype_CONNECTED: {              // if a new websocket connection is established
+        IPAddress ip = webSocket.remoteIP(num);
+        Serial.printf("[%u] Connected from %d.%d.%d.%d url: %s\n", num, ip[0], ip[1], ip[2], ip[3], payload);
+      }
+      break;
+    case WStype_TEXT:                     // if new text data is received
+      Serial.printf("[%u] get Text: %s\n", num, payload);
+      break;
+  }
+}
+
 //time functions
 void setupUdp() {
   DEBUG_PRINTLN("Starting UDP");
@@ -169,9 +238,9 @@ void setupUdp() {
   setSyncInterval(300);
 }
 
-void digitalClockDisplay()
-{
+void digitalClockDisplay() {
   // digital clock display of the time
+  Serial.print("Direct: ");
   Serial.print(hour());
   printDigits(minute());
   printDigits(second());
@@ -188,8 +257,7 @@ void digitalClockDisplay()
   Serial.println();
 }
 
-void printDigits(int digits)
-{
+void printDigits(int digits) {
   // utility for digital clock display: prints preceding colon and leading 0
   Serial.print(":");
   if (digits < 10)
