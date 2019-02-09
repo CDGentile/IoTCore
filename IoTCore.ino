@@ -155,6 +155,7 @@ void updateJson() {
 void sendWebsocketJson() {
   String jsonbuf;
   msg.printTo(jsonbuf);
+  webSocket.broadcastTXT(jsonbuf);
 }
 
 /*
@@ -270,8 +271,7 @@ void printDigits(int digits) {
 const int NTP_PACKET_SIZE = 48; // NTP time is in the first 48 bytes of message
 byte packetBuffer[NTP_PACKET_SIZE]; //buffer to hold incoming & outgoing packets
 
-time_t getNtpTime()
-{
+time_t getNtpTime()  {
   IPAddress ntpServerIP; // NTP server's ip address
 
   while (Udp.parsePacket() > 0) ; // discard any previously received packets
@@ -302,8 +302,7 @@ time_t getNtpTime()
 }
 
 // send an NTP request to the time server at the given address
-void sendNTPpacket(IPAddress &address)
-{
+void sendNTPpacket(IPAddress &address) {
   // set all bytes in the buffer to 0
   memset(packetBuffer, 0, NTP_PACKET_SIZE);
   // Initialize values needed to form NTP request
@@ -377,7 +376,7 @@ void handleFileUpload(){ // upload a new file to the SPIFFS
 }
 
 void handleRoot() {
-  server.send(200, "text/plain", "Hello world! index.html not found - please try the /defaultupload url");   // Send HTTP status 200 (Ok) and send some text to the browser/client
+  server.send(404, "text/plain", "Hello world! Requested file was not found - please try the /defaultupload url to add.");   // Send HTTP status 200 (Ok) and send some text to the browser/client
 }
 
 void uploadPage(void) {
@@ -385,7 +384,7 @@ void uploadPage(void) {
 }
 
 void setupServer(void) {
-  //server.on("/", handleRoot);
+  //server.on("/", handleRoot);                             //use for the first boot without
 
   server.on("/defaultupload", HTTP_GET, []() {                 // if the client requests the upload page, send it (inline for the first use)
     uploadPage();
@@ -405,7 +404,7 @@ void setupServer(void) {
 
   server.onNotFound([]() {                              // If the client requests any URI
     if (!handleFileRead(server.uri()))                  // send it if it exists
-      server.send(404, "text/plain", "404: Not Found"); // otherwise, respond with a 404 (Not Found) error
+      handleRoot()); // otherwise, respond with a 404 (Not Found) error
   });
 
   server.begin();
