@@ -54,9 +54,7 @@ const bool ledEnable = false;
 static const char ntpServerName[] = "us.pool.ntp.org";
 const int timeZone = -8;
 
-const int jsonCapacity = JSON_OBJECT_SIZE(2);
-StaticJsonBuffer<jsonCapacity> jb;
-JsonObject& msg = jb.createObject();
+const int jsonCapacity = JSON_OBJECT_SIZE(4);
 
 DHT dht(DHTPin, DHTTYPE);
 
@@ -87,14 +85,15 @@ void setup() {
 
   SPIFFS.begin();                           // Start the SPI Flash Files System
 
-  startWebSocket();
-
   setupServer();
 
   setupUdp();
+
+  startWebSocket();
 }
 
 time_t lastTick = 0; // when the digital clock was displayed
+int count = 0;
 
 void loop()
 {
@@ -103,17 +102,22 @@ void loop()
 
   server.handleClient();
   ArduinoOTA.handle();
+  webSocket.loop();
 
   //runs at 1/sec based on second field of current time
   if (now() != lastTick) { //update the display only if time has changed
     lastTick = now();
     updateTime();
-    if (lastTick%5 == 0)    //update temp every 5 seconds
+    count++;
+    if (lastTick%5 == 0) {   //update temp every 5 seconds
       updateTemp();
-    #ifdef DEBUG
-      digitalClockDisplay();
       bufferDisplay();
-    #endif
+      sendWebsocketJson();
+    }
+  //  #ifdef DEBUG
+  //    digitalClockDisplay();
+  //    bufferDisplay();
+  //  #endif
 
 
   }
@@ -147,15 +151,19 @@ void bufferDisplay() {
   Serial.println("F");
 }
 
-void updateJson() {
+void sendWebsocketJson() {
+  StaticJsonBuffer<jsonCapacity> jb;
+  JsonObject& msg = jb.createObject();
   msg["time"] = dataStore.time;
   msg["ambientTemp"] = dataStore.ambientTemp;
-}
-
-void sendWebsocketJson() {
+  Serial.print("Msg buffer: ");
+  msg.printTo(Serial);
+  Serial.println();
   String jsonbuf;
   msg.printTo(jsonbuf);
   webSocket.broadcastTXT(jsonbuf);
+  Serial.print("Json Buffer: ");  Serial.print(jsonbuf);
+  Serial.println();
 }
 
 /*
@@ -174,11 +182,11 @@ void serialTicker() {
 void setupWifi() {
   WiFiManager wifiManager;
 
-IPAddress _ip = IPAddress(192, 168, 1, 205);
-IPAddress _gw = IPAddress(192, 168, 1, 1);
-IPAddress _sn = IPAddress(255, 255, 255, 0);
+  IPAddress _ip = IPAddress(192, 168, 1, 205);
+  IPAddress _gw = IPAddress(192, 168, 1, 1);
+  IPAddress _sn = IPAddress(255, 255, 255, 0);
 
-wifiManager.setSTAStaticIPConfig(_ip, _gw, _sn);
+  wifiManager.setSTAStaticIPConfig(_ip, _gw, _sn);
 
   delay(100);
 
@@ -215,15 +223,24 @@ void startWebSocket() { // Start a WebSocket server
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght) { // When a WebSocket message is received
   switch (type) {
     case WStype_DISCONNECTED:             // if the websocket is disconnected
-      Serial.printf("[%u] Disconnected!\n", num);
+      #ifdef DEBUG
+        Serial.printf("[%u] Disconnected!\n", num);
+        Serial.println();
+      #endif
       break;
     case WStype_CONNECTED: {              // if a new websocket connection is established
         IPAddress ip = webSocket.remoteIP(num);
-        Serial.printf("[%u] Connected from %d.%d.%d.%d url: %s\n", num, ip[0], ip[1], ip[2], ip[3], payload);
+        #ifdef DEBUG
+          Serial.printf("[%u] Connected from %d.%d.%d.%d url: %s\n", num, ip[0], ip[1], ip[2], ip[3], payload);
+          Serial.println();
+        #endif
       }
       break;
     case WStype_TEXT:                     // if new text data is received
-      Serial.printf("[%u] get Text: %s\n", num, payload);
+      #ifdef DEBUG
+        Serial.printf("[%u] get Text: %s\n", num, payload);
+        Serial.println();
+      #endif
       break;
   }
 }
@@ -404,7 +421,7 @@ void setupServer(void) {
 
   server.onNotFound([]() {                              // If the client requests any URI
     if (!handleFileRead(server.uri()))                  // send it if it exists
-      handleRoot()); // otherwise, respond with a 404 (Not Found) error
+      handleRoot(); // otherwise, respond with a 404 (Not Found) error
   });
 
   server.begin();

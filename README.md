@@ -8,3 +8,8 @@ Includes the following items:
 -WiFiManager (AP/station mode via captive portal)  
 -ArduinoOTA (allows OTA code flashing)  
 -Hard Coded upload page to access SPIFFS and upload additional files  
+-Syncs time to NTP (default 5 min interval)
+-Reads DHT22 temperature in F
+-Outputs time and temp to serial terminal
+-Generates time and temp JSON message
+(working) WebSocket connection to hosted webpage
