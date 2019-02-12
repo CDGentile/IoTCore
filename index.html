@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <title>IoT Core Landing</title>
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
-
+    <script src="IoTWebsocket.js"></script>
   </head>
   <body>
     <nav class="navbar navbar-default">
@@ -31,14 +31,14 @@
     </nav>
 
     <div class="container">
-      <div class="jumbotron">
+      <div class="jumbotron col-md-6 col-md-offset-3 col-sm-6 col-sm-offset-3 col-xs-10 col-xs-offset-1">
         <h1>IoT Core Page</h1>
         <p></p>
         <p>Current time:
-          <span id="Time" display:inline-block>10:10:10</span>
+          <span id="time" display:inline-block>10:10:10</span>
         </p>
         <p>Current temp:
-          <span id="Temp">45</span>
+          <span id="ambientTemp">45</span>
         </p>
       </div>
     </div>
@@ -54,13 +54,13 @@
       crossorigin="anonymous">
     </script>
 
-    <script>
+    <!--<script>
       var socket = new WebSocket('ws://192.168.1.205:81');
 
       socket.onmessage = function(evt){
         console.log("I got data: " + evt.data)
         socket.send("Msg rcvd.");
       }
-    </script>
+    </script>-->
   </body>
 </html>

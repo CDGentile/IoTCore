@@ -111,14 +111,14 @@ void loop()
     count++;
     if (lastTick%5 == 0) {   //update temp every 5 seconds
       updateTemp();
-      bufferDisplay();
-      sendWebsocketJson();
+    //  bufferDisplay();
+
     }
   //  #ifdef DEBUG
   //    digitalClockDisplay();
   //    bufferDisplay();
   //  #endif
-
+  sendWebsocketJson();
 
   }
 }
@@ -156,9 +156,11 @@ void sendWebsocketJson() {
   JsonObject& msg = jb.createObject();
   msg["time"] = dataStore.time;
   msg["ambientTemp"] = dataStore.ambientTemp;
-  Serial.print("Msg buffer: ");
-  msg.printTo(Serial);
-  Serial.println();
+  #ifdef DEBUG
+    Serial.print("Msg buffer: ");
+    msg.printTo(Serial);
+    Serial.println();
+  #endif
   String jsonbuf;
   msg.printTo(jsonbuf);
   webSocket.broadcastTXT(jsonbuf);
