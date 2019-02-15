@@ -139,7 +139,7 @@ void updateTime() {
 
 void updateTemp() {
   int temp = (int) dht.readTemperature(true);
-  if (temp < 1000)
+  if (temp < 1000)    //avoids 0xFFFFFFFF error signal
     dataStore.ambientTemp = temp;
 }
 
